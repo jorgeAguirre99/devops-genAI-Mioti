@@ -1,40 +1,51 @@
-name: Continuous Integration
-
+name: CI
 on:
   push:
-    branches: [main]
+    branches: main
   pull_request:
-    branches: [main]
-
+    branches: main
+ 
 jobs:
+  # This will build the Java application
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java-version: [8, 11, 17]  # Example versions, adjust as necessary
     steps:
     - uses: actions/checkout@v3
-
-    - name: Set up cache for Maven
-      uses: actions/cache@v3
+    - uses: actions/setup-java@v3
       with:
-        path: |
-          ~/.m2/repository
-          !~/.m2/repository/org/apache
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
-
-    - name: Set up JDK ${{ matrix.java-version }}
-      uses: actions/setup-java@v3
-      with:
-        java-version: ${{ matrix.java-version }}
-        distribution: 'zulu'  # Change if you prefer a different distributor
-
+        distribution: zulu
+        java-version: 8
     - name: Build with Maven
       run: mvn clean package
-
+          
     - uses: actions/upload-artifact@v4
       with:
-        name: verademo-${{ matrix.java-version }}.war
+        name: verademo.war
         path: target/verademo.war
+ 
+  pipeline_scan:
+      needs: build
+      runs-on: ubuntu-latest
+      name: pipeline scan
+      steps:
+        - name: checkout repo
+          uses: actions/checkout@v3
+ 
+        - name: get archive
+          uses: actions/download-artifact@v4
+          with:
+            name: verademo.war
+        - name: pipeline-scan action step
+          id: pipelien-scan
+          uses: veracode/Veracode-pipeline-scan-action@v1.0.15
+          with:
+            vid: ${{ secrets.VID }}
+            vkey: ${{ secrets.VKEY }}
+            #file: "auth.js.zip"
+            file: "verademo.war" 
+            #request_policy: "VeraDemo Policy"
+            #store_baseline_file: true
+            #store_baseline_file_branch: "feature-123"
+            #create_baseline_from: "standard"
+            debug: 0
+            fail_build: false
